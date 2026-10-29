@@ -3,6 +3,6 @@
 // 여기에는 Project URL과 publishable key만 넣습니다.
 // 앱 비밀번호·DB 비밀번호·secret/service_role 키는 절대 넣지 마세요.
 window.KPI_CONFIG = {
-  supabaseUrl: '',
-  supabasePublishableKey: ''
+  supabaseUrl: 'https://nmrffqkfoafultcvxmhf.supabase.co',
+  supabasePublishableKey: 'sb_publishable_OcG79XaGI5-DWt695AnLvw_mC9to3UI'
 };

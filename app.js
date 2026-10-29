@@ -5,13 +5,13 @@
 
 // ===== [1] 데이터 읽기·저장 =====
 (function () {
-  var STORAGE_KEY = 'kpi_records_sample_v1';
+  var STORAGE_KEY = 'kpi_records_sample_v2'; // v2: 9월 샘플을 수업 원본 값으로 교체
 
   // 가상 샘플 6건 — 전체 합계: 목표 60,000,000 / 실적 59,400,000 / 달성률 99%
   var SAMPLE = [
-    { id: 'K001', month: '2026-09', team: '영업A', target: 10000000, actual: 9500000 },
-    { id: 'K002', month: '2026-09', team: '영업B', target: 8000000, actual: 7600000 },
-    { id: 'K003', month: '2026-09', team: '영업C', target: 12000000, actual: 11500000 },
+    { id: 'K001', month: '2026-09', team: '영업A', target: 10000000, actual: 9000000 },
+    { id: 'K002', month: '2026-09', team: '영업B', target: 8000000, actual: 8800000 },
+    { id: 'K003', month: '2026-09', team: '영업C', target: 12000000, actual: 10800000 },
     { id: 'K004', month: '2026-10', team: '영업A', target: 10000000, actual: 11000000 },
     { id: 'K005', month: '2026-10', team: '영업B', target: 8000000, actual: 7200000 },
     { id: 'K006', month: '2026-10', team: '영업C', target: 12000000, actual: 12600000 }
@@ -112,7 +112,8 @@
       if (code === '23505') {
         if (/source_id/.test(msg)) errors.form = '샘플 6건이 이미 들어 있어요. 기존 자료는 그대로 두었어요.';
         else errors.team = (value ? value.month + ' ' + value.team + ' ' : '') + '자료가 이미 있습니다. 표에서 [수정]을 눌러 고쳐 주세요.';
-      } else if (code === '23514') errors.form = 'DB 규칙에 맞지 않는 값이라 저장되지 않았어요. (월 형식·부서명·금액 확인)';
+      } else if (code === 'PGRST205' || code === '42P01') errors.form = 'DB에 kpi_records 표가 아직 없어요. Supabase SQL Editor에서 schema.sql을 먼저 실행해 주세요.';
+      else if (code === '23514') errors.form = 'DB 규칙에 맞지 않는 값이라 저장되지 않았어요. (월 형식·부서명·금액 확인)';
       else if (code === '42501' || /JWT|permission|row-level/i.test(msg)) errors.form = '로그인이 필요하거나 권한이 없어 저장되지 않았어요. 다시 로그인해 주세요.';
       else if (/fetch|network/i.test(msg)) errors.form = '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.';
       else errors.form = '저장하지 못했어요. (' + (code || '') + ' ' + msg + ')';
