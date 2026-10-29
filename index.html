@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI 실적 현황</title>
+<meta name="description" content="월·부서별 목표와 실적, 달성률을 한 화면에서 확인하는 KPI 웹페이지">
+
+<!-- 카카오톡·문자 링크 미리보기 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="KPI 실적 현황">
+<meta property="og:description" content="월·부서별 목표와 실적, 달성률을 한 화면에서 확인합니다">
+<meta property="og:url" content="https://jiniya1227.github.io/kpi-dashboard/">
+<meta property="og:image" content="https://jiniya1227.github.io/kpi-dashboard/og.png?v=20261029">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- 탭 아이콘 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323395b'/%3E%3Crect x='14' y='34' width='8' height='16' rx='2' fill='%23f2c46d'/%3E%3Crect x='28' y='24' width='8' height='26' rx='2' fill='%23fff'/%3E%3Crect x='42' y='14' width='8' height='36' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">KPI Dashboard</div>
+    <h1>KPI 실적 현황</h1>
+    <p>월·부서별 목표와 실적을 비교하고 달성률을 확인합니다.</p>
+    <div class="mode" id="modeBadge">샘플 모드 · 가상 자료로 작동 중</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 01 필터 -->
+  <section class="card" aria-labelledby="t-filter">
+    <div class="section-title"><span class="no">01</span><h2 id="t-filter">보고 싶은 범위</h2></div>
+    <div class="filters">
+      <div class="field"><label for="fMonth">월</label><select id="fMonth"></select></div>
+      <div class="field"><label for="fTeam">부서</label><select id="fTeam"></select></div>
+      <button class="btn ghost" id="fReset" type="button">필터 초기화</button>
+    </div>
+  </section>
+
+  <!-- 요약 -->
+  <div class="stats" aria-live="polite">
+    <div class="stat"><div class="label">목표 합계</div><div class="value" id="sTarget">-</div></div>
+    <div class="stat"><div class="label">실적 합계</div><div class="value" id="sActual">-</div></div>
+    <div class="stat"><div class="label">자료 건수</div><div class="value" id="sCount">-</div></div>
+    <div class="stat rate">
+      <div class="label">달성률</div>
+      <div class="value" id="sRate">-</div>
+      <div class="bar"><span id="sBar"></span></div>
+      <div class="hint">실적 합계 ÷ 목표 합계 × 100</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- 02 부서별 비교 -->
+    <section class="card" aria-labelledby="t-chart">
+      <div class="section-title"><span class="no">02</span><h2 id="t-chart">부서별 비교</h2><small id="chartScope"></small></div>
+      <div class="chart" id="chart"></div>
+      <div class="legend">
+        <span><i style="background:var(--navy)"></i>실적</span>
+        <span><i style="background:var(--good)"></i>목표 초과</span>
+        <span><i style="background:var(--gold)"></i>목표선</span>
+      </div>
+    </section>
+
+    <!-- 03 입력 -->
+    <section class="card" aria-labelledby="t-form">
+      <div class="section-title"><span class="no">03</span><h2 id="t-form">실적 입력</h2></div>
+      <form id="form" novalidate>
+        <div class="row">
+          <div class="field" data-f="month"><label for="iMonth">월</label><input type="month" id="iMonth" name="month" required><div class="err"></div></div>
+          <div class="field" data-f="team"><label for="iTeam">부서</label><input type="text" id="iTeam" name="team" maxlength="80" placeholder="예: 영업B" list="teamList" required><div class="err"></div></div>
+        </div>
+        <datalist id="teamList"></datalist>
+        <div class="row">
+          <div class="field" data-f="target"><label for="iTarget">목표 (원)</label><input type="text" id="iTarget" name="target" inputmode="numeric" placeholder="8,000,000" required><div class="err"></div></div>
+          <div class="field" data-f="actual"><label for="iActual">실적 (원)</label><input type="text" id="iActual" name="actual" inputmode="numeric" placeholder="7,200,000" required><div class="err"></div></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn" type="submit" id="saveBtn">저장</button>
+          <button class="btn ghost" type="button" id="cancelBtn" hidden>수정 취소</button>
+        </div>
+      </form>
+      <div class="toast" id="toast" role="status"></div>
+      <p class="note">샘플 모드에서는 입력한 값이 <b>이 브라우저에만</b> 남습니다. 다른 기기·다른 사람에게는 보이지 않아요.</p>
+    </section>
+  </div>
+
+  <!-- 04 근거표 -->
+  <section class="card" style="margin-top:18px" aria-labelledby="t-table">
+    <div class="section-title"><span class="no">04</span><h2 id="t-table">근거표</h2><small><button class="btn ghost small" id="sampleBtn" type="button">샘플 6건으로 되돌리기</button></small></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>월</th><th>부서</th><th class="num">목표</th><th class="num">실적</th><th class="num">달성률</th><th class="num">관리</th></tr></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>KPI 실적 현황 · 화면은 index.html·style.css, 저장·화면 동작은 app.js, 연결 정보는 config.js에서 관리합니다.</footer>
+
+<script src="./config.js" defer></script>
+<script src="./app.js" defer></script>
+</body>
+</html>
