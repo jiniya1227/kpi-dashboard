@@ -1,9 +1,9 @@
 // KPI 실적 현황 — app.js
-// [1] 데이터 읽기·저장 부분  [2] 화면 코드  (Supabase 연결 때는 [1]만 바꿉니다)
+// [1] 데이터 읽기·저장 부분  [2] 화면 코드
+// config.js가 비어 있으면 '샘플 모드'(이 브라우저에만 저장),
+// 채워져 있으면 'Supabase 모드'(로그인한 사용자의 자료를 DB에 저장)로 작동합니다.
 
 // ===== [1] 데이터 읽기·저장 =====
-// 지금은 샘플 모드: 가상 샘플을 이 브라우저(localStorage)에만 저장합니다.
-// 나중에 Supabase를 연결할 때는 이 파일의 list / add / update / remove 안쪽만 바꾸면 됩니다.
 (function () {
   var STORAGE_KEY = 'kpi_records_sample_v1';
 
@@ -68,11 +68,11 @@
     return { ok: Object.keys(errors).length === 0, errors: errors, value: { month: month, team: team, target: target, actual: actual } };
   }
 
-  // 화면에서 쓰는 함수들 — 모두 Promise로 돌려줘서 나중에 서버 요청으로 바꾸기 쉽게 했습니다.
-  window.KpiStore = {
+  // --- 샘플 모드: 가상 샘플을 이 브라우저(localStorage)에만 저장 ---
+  var sampleStore = {
     mode: 'sample',
+    auth: null,
     list: function () { return Promise.resolve(load()); },
-    validate: function (input, editingId) { return validate(input, load(), editingId); },
     add: function (input) {
       var rows = load();
       var v = validate(input, rows, null);
@@ -97,6 +97,93 @@
     },
     resetSample: function () { save(clone(SAMPLE)); return Promise.resolve(); }
   };
+
+  // --- Supabase 모드: 로그인한 사용자의 자료만 DB에서 읽고 씀 (RLS가 최종 검사) ---
+  function makeSupabaseStore(url, key) {
+    var db = window.supabase.createClient(url, key);
+    var cache = []; // 화면 검사(중복 안내)에 쓰는 마지막 조회 결과
+    var COLS = 'id, source_id, month, team, target, actual';
+
+    // DB 오류를 쉬운 말로 바꿔서 { errors } 형태로 돌려줌
+    function fail(error, value) {
+      var code = error && error.code;
+      var msg = (error && error.message) || '';
+      var errors = {};
+      if (code === '23505') {
+        if (/source_id/.test(msg)) errors.form = '샘플 6건이 이미 들어 있어요. 기존 자료는 그대로 두었어요.';
+        else errors.team = (value ? value.month + ' ' + value.team + ' ' : '') + '자료가 이미 있습니다. 표에서 [수정]을 눌러 고쳐 주세요.';
+      } else if (code === '23514') errors.form = 'DB 규칙에 맞지 않는 값이라 저장되지 않았어요. (월 형식·부서명·금액 확인)';
+      else if (code === '42501' || /JWT|permission|row-level/i.test(msg)) errors.form = '로그인이 필요하거나 권한이 없어 저장되지 않았어요. 다시 로그인해 주세요.';
+      else if (/fetch|network/i.test(msg)) errors.form = '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.';
+      else errors.form = '저장하지 못했어요. (' + (code || '') + ' ' + msg + ')';
+      return { ok: false, errors: errors };
+    }
+    function toRow(r) { return { id: r.id, source_id: r.source_id, month: r.month, team: r.team, target: Number(r.target), actual: Number(r.actual) }; }
+
+    return {
+      mode: 'supabase',
+      auth: {
+        getUser: function () { return db.auth.getSession().then(function (res) { return res.data.session ? res.data.session.user : null; }); },
+        signIn: function (email, password) {
+          return db.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
+            if (res.error) throw res.error;
+            return res.data.user;
+          });
+        },
+        signOut: function () { cache = []; return db.auth.signOut(); },
+        onChange: function (fn) { db.auth.onAuthStateChange(function (event, session) { cache = []; fn(event, session ? session.user : null); }); }
+      },
+      list: function () {
+        return db.from('kpi_records').select(COLS).order('month', { ascending: false }).then(function (res) {
+          if (res.error) throw fail(res.error);
+          cache = res.data.map(toRow);
+          return cache.map(function (r) { return Object.assign({}, r); });
+        });
+      },
+      add: function (input) {
+        var v = validate(input, cache, null);
+        if (!v.ok) return Promise.reject(v);
+        // user_id는 DB가 로그인한 사용자로 자동으로 채움
+        return db.from('kpi_records').insert(v.value).select(COLS).then(function (res) {
+          if (res.error) throw fail(res.error, v.value);
+          return toRow(res.data[0]);
+        });
+      },
+      update: function (id, input) {
+        var v = validate(input, cache, id);
+        if (!v.ok) return Promise.reject(v);
+        return db.from('kpi_records').update(v.value).eq('id', id).select(COLS).then(function (res) {
+          if (res.error) throw fail(res.error, v.value);
+          // 권한이 없으면 오류 없이 0건일 수 있으므로 반환 행을 확인
+          if (!res.data.length) throw { ok: false, errors: { form: '수정되지 않았어요. 이미 삭제됐거나 내 자료가 아니에요.' } };
+          return toRow(res.data[0]);
+        });
+      },
+      remove: function (id) {
+        return db.from('kpi_records').delete().eq('id', id).select('id').then(function (res) {
+          if (res.error) throw fail(res.error);
+          if (!res.data.length) throw { ok: false, errors: { form: '삭제되지 않았어요. 이미 삭제됐거나 내 자료가 아니에요.' } };
+        });
+      },
+      // 샘플 6건을 한 번의 요청으로 저장 (원본 번호는 source_id로 보관 → 다시 가져오면 중복 오류)
+      importSample: function () {
+        var rows = SAMPLE.map(function (r) { return { source_id: r.id, month: r.month, team: r.team, target: r.target, actual: r.actual }; });
+        return db.from('kpi_records').insert(rows).then(function (res) {
+          if (res.error) throw fail(res.error);
+        });
+      }
+    };
+  }
+
+  var cfg = window.KPI_CONFIG || {};
+  var url = String(cfg.supabaseUrl || '').trim();
+  var key = String(cfg.supabasePublishableKey || '').trim();
+  if (url && key && window.supabase) {
+    window.KpiStore = makeSupabaseStore(url, key);
+  } else {
+    window.KpiStore = sampleStore;
+    if (url && key) window.KpiStore.loadError = 'Supabase 도구를 불러오지 못해 샘플 모드로 작동 중이에요. 인터넷 연결을 확인해 주세요.';
+  }
 })();
 
 // ===== [2] 화면 코드 =====
@@ -104,6 +191,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var rows = [];
   var editingId = null;
+  var isDb = KpiStore.mode === 'supabase';
+  var currentUser = null;
+  function needLogin() { return isDb && !currentUser; }
 
   function won(n) { return n.toLocaleString('ko-KR'); }
   // 퍼센트는 마지막 표시 단계에서만 소수 둘째 자리로 반올림
@@ -174,14 +264,30 @@
       return '<tr' + (r.id === editingId ? ' class="editing"' : '') + '><td>' + esc(r.month) + '</td><td>' + esc(r.team) + '</td>' +
         '<td class="num">' + won(r.target) + '</td><td class="num">' + won(r.actual) + '</td><td class="num">' + pill(pct(r.actual, r.target)) + '</td>' +
         '<td><div class="actions"><button class="btn ghost small" data-edit="' + esc(r.id) + '">수정</button><button class="btn danger small" data-del="' + esc(r.id) + '">삭제</button></div></td></tr>';
-    }).join('') : '<tr><td colspan="6"><div class="empty"><b>' + (rows.length ? '조건에 맞는 자료가 없어요' : '아직 입력된 자료가 없어요') + '</b>' +
-      (rows.length ? '필터를 [필터 초기화]로 되돌려 보세요.' : '위의 실적 입력에서 첫 자료를 저장하거나, 샘플 6건을 불러오세요.') + '</div></td></tr>';
+    }).join('') : '<tr><td colspan="6"><div class="empty">' + (needLogin() ? '<b>로그인하면 내 자료가 보여요</b>위의 로그인 칸에서 앱 사용자로 로그인해 주세요.' :
+      '<b>' + (rows.length ? '조건에 맞는 자료가 없어요' : '아직 입력된 자료가 없어요') + '</b>' +
+      (rows.length ? '필터를 [필터 초기화]로 되돌려 보세요.' : '위의 실적 입력에서 첫 자료를 저장하거나, 샘플 6건을 불러오세요.')) + '</div></td></tr>';
     $('tfoot').innerHTML = list.length ? '<tr><td colspan="2">합계 (' + list.length + '건)</td><td class="num">' + won(tSum) + '</td><td class="num">' + won(aSum) + '</td><td class="num">' + pill(p) + '</td><td></td></tr>' : '';
   }
 
   function reload() {
+    if (needLogin()) { rows = []; render(); return Promise.resolve(); }
     return KpiStore.list().then(function (data) { rows = data; render(); })
-      .catch(function () { showToast('자료를 불러오지 못했어요. 새로고침해 주세요.', false); });
+      .catch(function (v) {
+        rows = []; render();
+        showToast((v && v.errors && v.errors.form) || '자료를 불러오지 못했어요. 새로고침해 주세요.', false);
+      });
+  }
+
+  // 로그인 상태에 맞춰 화면 바꾸기 (Supabase 모드)
+  function setUser(user) {
+    var changed = (currentUser && currentUser.id) !== (user && user.id);
+    currentUser = user;
+    $('loginCard').hidden = !!user;
+    $('logoutBtn').hidden = !user;
+    $('modeBadge').textContent = user ? 'DB 모드 · ' + user.email : 'DB 모드 · 로그인이 필요해요';
+    document.querySelectorAll('#form input, #form button, #sampleBtn').forEach(function (el) { el.disabled = !user; });
+    if (changed) { setEditing(null); rows = []; reload(); }
   }
 
   // 안내 메시지
@@ -255,8 +361,11 @@
       if (!r || !confirm(r.month + ' ' + r.team + ' 자료를 삭제할까요?')) return;
       KpiStore.remove(r.id).then(function () {
         if (editingId === r.id) setEditing(null);
-        return reload();
-      }).then(function () { showToast(r.month + ' ' + r.team + ' 자료를 삭제했어요.', true); });
+        return reload().then(function () { showToast(r.month + ' ' + r.team + ' 자료를 삭제했어요.', true); });
+      }).catch(function (v) {
+        showToast((v && v.errors && v.errors.form) || '삭제하지 못했어요.', false);
+        reload();
+      });
     }
   });
 
@@ -264,10 +373,46 @@
   $('fTeam').addEventListener('change', render);
   $('fReset').addEventListener('click', function () { $('fMonth').value = ''; $('fTeam').value = ''; render(); });
   $('sampleBtn').addEventListener('click', function () {
+    if (isDb) {
+      if (!confirm('가상 샘플 6건을 내 DB 자료로 저장할까요? (한 번만 가능해요)')) return;
+      KpiStore.importSample().then(function () { return reload(); })
+        .then(function () { showToast('샘플 6건을 DB에 저장했어요. 전체 달성률이 99%인지 확인해 보세요.', true); })
+        .catch(function (v) { showToast((v && v.errors && v.errors.form) || '샘플을 저장하지 못했어요.', false); reload(); });
+      return;
+    }
     if (!confirm('지금 자료를 지우고 가상 샘플 6건으로 되돌릴까요?')) return;
     KpiStore.resetSample().then(function () { setEditing(null); return reload(); })
       .then(function () { showToast('샘플 6건으로 되돌렸어요.', true); });
   });
 
-  reload();
+  if (isDb) {
+    $('modeBadge').classList.add('live');
+    $('sampleBtn').textContent = '샘플 6건 가져오기';
+    $('saveNote').innerHTML = '입력한 값은 <b>Supabase DB</b>에 저장돼요. 다른 기기에서 같은 계정으로 로그인해도 똑같이 보여요.';
+
+    $('loginForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      $('loginErr').textContent = '';
+      $('loginBtn').disabled = true;
+      KpiStore.auth.signIn($('lEmail').value.trim(), $('lPw').value)
+        .then(function (user) { $('lPw').value = ''; setUser(user); showToast(user.email + ' 계정으로 로그인했어요.', true); })
+        .catch(function (err) {
+          var msg = (err && err.message) || '';
+          $('loginErr').textContent = /Invalid login/i.test(msg) ? '이메일 또는 비밀번호가 맞지 않아요.' :
+            /not confirmed/i.test(msg) ? '이메일 확인이 끝나지 않은 사용자예요. Supabase에서 확인 완료로 바꿔 주세요.' :
+            /fetch|network/i.test(msg) ? 'Supabase에 연결하지 못했어요. 인터넷 연결과 config.js의 주소를 확인해 주세요.' :
+            '로그인하지 못했어요. (' + msg + ')';
+        })
+        .then(function () { $('loginBtn').disabled = false; });
+    });
+    $('logoutBtn').addEventListener('click', function () {
+      KpiStore.auth.signOut().then(function () { setUser(null); showToast('로그아웃했어요.', true); });
+    });
+    KpiStore.auth.onChange(function (event, user) { setUser(user); });
+    setUser(null); render(); // 로그인 확인 전에는 빈 화면
+    KpiStore.auth.getUser().then(setUser);
+  } else {
+    if (KpiStore.loadError) showToast(KpiStore.loadError, false);
+    reload();
+  }
 })();

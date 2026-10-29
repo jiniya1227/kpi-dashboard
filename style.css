@@ -34,6 +34,22 @@ header.top p { margin: 8px 0 0; color: #d7deea; }
 .mode { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); padding: 6px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; }
 .mode::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 
+.mode-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.mode-row .mode { margin-top: 0; }
+.mode.live::before { background: #6fd3a0; }
+.btn.logout { background: transparent; border-color: rgba(255,255,255,.4); color: #fff; }
+.btn.logout:hover { background: rgba(255,255,255,.12); }
+
+/* 로그인 */
+.card.login { margin-bottom: 18px; border-color: var(--gold); }
+.login-lead { margin: 0 0 14px; color: var(--muted); }
+.login-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.login-form .field { flex: 1 1 220px; }
+input[type=email], input[type=password] { height: 46px; border: 1px solid #cfd5df; border-radius: 10px; padding: 0 12px; background: #fff; width: 100%; }
+#loginErr { margin-top: 10px; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset:disabled { opacity: .55; }
+
 main { margin-top: -56px; position: relative; z-index: 1; padding-bottom: 56px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 6px 24px rgba(24,42,69,.06); }
 .section-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }

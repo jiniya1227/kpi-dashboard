@@ -1,7 +1,8 @@
-// Supabase 연결 정보 (다음 수업에서 채웁니다)
+// Supabase 연결 정보 — 수업 가이드(슬라이드 36번)와 같은 이름을 씁니다.
 // 비어 있으면 앱은 '샘플 모드'로 작동하고, 값은 이 브라우저에만 남습니다.
-// 여기에는 공개용(publishable) 키만 넣습니다. 비밀 키(secret/service_role)는 절대 넣지 마세요.
+// 여기에는 Project URL과 publishable key만 넣습니다.
+// 앱 비밀번호·DB 비밀번호·secret/service_role 키는 절대 넣지 마세요.
 window.KPI_CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_KEY: ''
+  supabaseUrl: '',
+  supabasePublishableKey: ''
 };

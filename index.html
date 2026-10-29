@@ -11,7 +11,7 @@
 <meta property="og:title" content="KPI 실적 현황">
 <meta property="og:description" content="월·부서별 목표와 실적, 달성률을 한 화면에서 확인합니다">
 <meta property="og:url" content="https://jiniya1227.github.io/kpi-dashboard/">
-<meta property="og:image" content="https://jiniya1227.github.io/kpi-dashboard/og.png?v=20261029">
+<meta property="og:image" content="https://jiniya1227.github.io/kpi-dashboard/og.png?v=20261029b">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
@@ -31,11 +31,26 @@
     <div class="eyebrow">KPI Dashboard</div>
     <h1>KPI 실적 현황</h1>
     <p>월·부서별 목표와 실적을 비교하고 달성률을 확인합니다.</p>
-    <div class="mode" id="modeBadge">샘플 모드 · 가상 자료로 작동 중</div>
+    <div class="mode-row">
+      <div class="mode" id="modeBadge">샘플 모드 · 가상 자료로 작동 중</div>
+      <button class="btn small logout" id="logoutBtn" type="button" hidden>로그아웃</button>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
+
+  <!-- 로그인 (Supabase 모드에서만 보임) -->
+  <section class="card login" id="loginCard" aria-labelledby="t-login" hidden>
+    <div class="section-title"><span class="no">00</span><h2 id="t-login">로그인</h2></div>
+    <p class="login-lead">로그인하면 <b>내 실적 자료</b>만 보이고, 입력한 값은 DB에 저장돼요.</p>
+    <form id="loginForm" class="login-form">
+      <div class="field"><label for="lEmail">이메일</label><input type="email" id="lEmail" autocomplete="username" required></div>
+      <div class="field"><label for="lPw">비밀번호</label><input type="password" id="lPw" autocomplete="current-password" required></div>
+      <button class="btn" type="submit" id="loginBtn">로그인</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </section>
 
   <!-- 01 필터 -->
   <section class="card" aria-labelledby="t-filter">
@@ -91,7 +106,7 @@
         </div>
       </form>
       <div class="toast" id="toast" role="status"></div>
-      <p class="note">샘플 모드에서는 입력한 값이 <b>이 브라우저에만</b> 남습니다. 다른 기기·다른 사람에게는 보이지 않아요.</p>
+      <p class="note" id="saveNote">샘플 모드에서는 입력한 값이 <b>이 브라우저에만</b> 남습니다. 다른 기기·다른 사람에게는 보이지 않아요.</p>
     </section>
   </div>
 
@@ -111,6 +126,7 @@
 
 <footer>KPI 실적 현황 · 화면은 index.html·style.css, 저장·화면 동작은 app.js, 연결 정보는 config.js에서 관리합니다.</footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" defer></script>
 <script src="./config.js" defer></script>
 <script src="./app.js" defer></script>
 </body>
